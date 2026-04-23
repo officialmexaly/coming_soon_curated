@@ -1,6 +1,5 @@
-import React, { useEffect, useState, Children } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Instagram, Facebook, CheckCircle2 } from 'lucide-react';
 interface TimeLeft {
   days: number;
   hours: number;
@@ -52,44 +51,49 @@ const OrnamentalFlourish = () =>
   </svg>;
 
 export function ComingSoonHero() {
-  const [email, setEmail] = useState('');
-  const [submitted, setSubmitted] = useState(false);
   const [timeLeft, setTimeLeft] = useState<TimeLeft>({
     days: 0,
     hours: 0,
     minutes: 0,
     seconds: 0
   });
+  const [countdownStart] = useState(() => {
+    const storageKey = 'dreamscape-countdown-start';
+    const storedValue =
+      typeof window !== 'undefined' ? localStorage.getItem(storageKey) : null;
+
+    if (storedValue) {
+      return Number(storedValue);
+    }
+
+    const now = Date.now();
+
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(storageKey, String(now));
+    }
+
+    return now;
+  });
+  const countdownDurationMs = 5 * 24 * 60 * 60 * 1000;
+
+  const calculateTimeLeft = () => {
+    const elapsed = Date.now() - countdownStart;
+    const remaining = Math.max(countdownDurationMs - elapsed, 0);
+
+    setTimeLeft({
+      days: Math.floor(remaining / (1000 * 60 * 60 * 24)),
+      hours: Math.floor(remaining % (1000 * 60 * 60 * 24) / (1000 * 60 * 60)),
+      minutes: Math.floor(remaining % (1000 * 60 * 60) / (1000 * 60)),
+      seconds: Math.floor(remaining % (1000 * 60) / 1000)
+    });
+  };
+
   // Countdown logic
   useEffect(() => {
-    const targetDate = new Date();
-    targetDate.setDate(targetDate.getDate() + 7);
-    const targetTime = targetDate.getTime();
-    const calculateTimeLeft = () => {
-      const now = new Date().getTime();
-      const difference = targetTime - now;
-      if (difference > 0) {
-        setTimeLeft({
-          days: Math.floor(difference / (1000 * 60 * 60 * 24)),
-          hours: Math.floor(
-            difference % (1000 * 60 * 60 * 24) / (1000 * 60 * 60)
-          ),
-          minutes: Math.floor(difference % (1000 * 60 * 60) / (1000 * 60)),
-          seconds: Math.floor(difference % (1000 * 60) / 1000)
-        });
-      }
-    };
     calculateTimeLeft();
     const timer = setInterval(calculateTimeLeft, 1000);
     return () => clearInterval(timer);
   }, []);
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (email) {
-      setSubmitted(true);
-      setEmail('');
-    }
-  };
   const containerVariants = {
     hidden: {
       opacity: 0
@@ -259,137 +263,11 @@ export function ComingSoonHero() {
           </p>
         </motion.div>
 
-        {/* Email Signup with enhanced button */}
-        <motion.div variants={itemVariants} className="w-full max-w-full sm:max-w-md mb-5 sm:mb-8 px-2 sm:px-0">
-          <p className="font-elegant text-cream/80 mb-3 sm:mb-4 text-sm sm:text-lg italic">
-            Be the first to know when we launch
-          </p>
-          {submitted ?
-          <motion.div
-            initial={{
-              opacity: 0,
-              scale: 0.95
-            }}
-            animate={{
-              opacity: 1,
-              scale: 1
-            }}
-            className="bg-white/10 backdrop-blur-sm border border-gold/30 rounded-2xl p-3 sm:p-4 text-cream font-elegant text-sm sm:text-lg flex items-center justify-center gap-3">
-            
-              <motion.div
-              initial={{
-                scale: 0
-              }}
-              animate={{
-                scale: 1
-              }}
-              transition={{
-                type: 'spring',
-                delay: 0.2
-              }}>
-              
-                <CheckCircle2 className="w-6 h-6 text-gold" />
-              </motion.div>
-              <span>Thank you. You have been added to our exclusive list.</span>
-            </motion.div> :
-
-          <form
-            onSubmit={handleSubmit}
-            className="flex flex-col gap-2 sm:flex-row">
-            
-              <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="Enter your email address"
-              required
-              className="w-full flex-1 bg-white/10 backdrop-blur-sm border border-white/20 text-white placeholder:text-white/50 px-4 py-2.5 rounded-2xl focus:outline-none focus:border-gold transition-colors font-elegant text-sm sm:text-lg" />
-            
-              <motion.button
-              type="submit"
-              className="relative w-full sm:w-auto bg-plum text-white px-8 py-2.5 rounded-2xl font-serif tracking-widest uppercase text-sm transition-colors duration-300 border border-plum overflow-hidden"
-              whileHover={{
-                scale: 1.02
-              }}
-              whileTap={{
-                scale: 0.98
-              }}>
-              
-                <motion.div
-                className="absolute inset-0 bg-gradient-to-r from-transparent via-gold/20 to-transparent"
-                animate={{
-                  x: ['-100%', '100%']
-                }}
-                transition={{
-                  duration: 2,
-                  repeat: Infinity,
-                  ease: 'linear'
-                }} />
-              
-                <span className="relative z-10">Notify Me</span>
-              </motion.button>
-            </form>
-          }
-        </motion.div>
-
         {/* Brand tagline above social */}
         <motion.div variants={itemVariants} className="mb-4 sm:mb-6 px-2 sm:px-0">
           <p className="font-elegant text-cream/60 italic text-[11px] sm:text-xs md:text-base">
             More Than Events. We Curate Experiences.
           </p>
-        </motion.div>
-
-        {/* Social Links */}
-        <motion.div variants={itemVariants} className="flex items-center gap-4 sm:gap-8">
-          <motion.a
-            href="#"
-            className="text-white/70 hover:text-gold transition-colors duration-300"
-            whileHover={{
-              scale: 1.1,
-              y: -2
-            }}
-            whileTap={{
-              scale: 0.95
-            }}>
-            
-            <Instagram className="w-6 h-6" strokeWidth={1.5} />
-            <span className="sr-only">Instagram</span>
-          </motion.a>
-          <motion.a
-            href="#"
-            className="text-white/70 hover:text-gold transition-colors duration-300"
-            whileHover={{
-              scale: 1.1,
-              y: -2
-            }}
-            whileTap={{
-              scale: 0.95
-            }}>
-            
-            <Facebook className="w-6 h-6" strokeWidth={1.5} />
-            <span className="sr-only">Facebook</span>
-          </motion.a>
-          <motion.a
-            href="#"
-            className="text-white/70 hover:text-gold transition-colors duration-300"
-            whileHover={{
-              scale: 1.1,
-              y: -2
-            }}
-            whileTap={{
-              scale: 0.95
-            }}>
-            
-            <svg
-              className="w-6 h-6"
-              fill="currentColor"
-              viewBox="0 0 24 24"
-              aria-hidden="true">
-              
-              <path d="M12.017 0C5.396 0 .029 5.367.029 11.987c0 5.079 3.158 9.417 7.618 11.162-.105-.949-.199-2.403.041-3.439.219-.937 1.406-5.957 1.406-5.957s-.359-.72-.359-1.781c0-1.663.967-2.911 2.168-2.911 1.024 0 1.518.769 1.518 1.688 0 1.029-.653 2.567-.992 3.992-.285 1.193.6 2.165 1.775 2.165 2.128 0 3.768-2.245 3.768-5.487 0-2.861-2.063-4.869-5.008-4.869-3.41 0-5.409 2.562-5.409 5.199 0 1.033.394 2.143.889 2.741.099.12.112.225.085.345-.09.375-.293 1.199-.334 1.363-.053.225-.172.271-.401.165-1.495-.69-2.433-2.878-2.433-4.646 0-3.776 2.748-7.252 7.951-7.252 4.182 0 7.435 2.981 7.435 6.953 0 4.156-2.619 7.505-6.257 7.505-1.222 0-2.371-.635-2.763-1.385l-.752 2.868c-.271 1.043-.999 2.348-1.492 3.143 1.131.349 2.317.535 3.541.535 6.607 0 11.985-5.365 11.985-11.987C23.97 5.367 18.633 0 12.017 0z" />
-            </svg>
-            <span className="sr-only">Pinterest</span>
-          </motion.a>
         </motion.div>
       </motion.div>
     </div>);
