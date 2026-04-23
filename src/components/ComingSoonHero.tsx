@@ -1,4 +1,6 @@
-import React, { useEffect, useState } from 'react';
+'use client';
+
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 interface TimeLeft {
   days: number;
@@ -6,19 +8,60 @@ interface TimeLeft {
   minutes: number;
   seconds: number;
 }
+interface CountdownState {
+  launchAt: number;
+  serverNow: number;
+}
+interface CountdownSnapshot extends CountdownState {
+  syncedAt: number;
+}
+interface ComingSoonHeroProps {
+  initialCountdownState: CountdownState;
+}
+const calculateTimeLeft = ({ launchAt, serverNow }: CountdownState) => {
+  const remaining = Math.max(launchAt - serverNow, 0);
+
+  return {
+    days: Math.floor(remaining / (1000 * 60 * 60 * 24)),
+    hours: Math.floor(remaining % (1000 * 60 * 60 * 24) / (1000 * 60 * 60)),
+    minutes: Math.floor(remaining % (1000 * 60 * 60) / (1000 * 60)),
+    seconds: Math.floor(remaining % (1000 * 60) / 1000)
+  };
+};
 // Floating particle component
 const FloatingParticle = ({ delay }: {delay: number;}) => {
+  const [viewport, setViewport] = useState({
+    width: 0,
+    height: 0
+  });
+
+  useEffect(() => {
+    const updateViewport = () => {
+      setViewport({
+        width: window.innerWidth,
+        height: window.innerHeight
+      });
+    };
+
+    updateViewport();
+    window.addEventListener('resize', updateViewport);
+
+    return () => {
+      window.removeEventListener('resize', updateViewport);
+    };
+  }, []);
+
   return (
     <motion.div
       className="absolute w-1 h-1 bg-gold rounded-full opacity-40"
       initial={{
-        x: Math.random() * window.innerWidth,
-        y: window.innerHeight + 20,
+        x: Math.random() * viewport.width,
+        y: viewport.height + 20,
         scale: Math.random() * 0.5 + 0.5
       }}
       animate={{
         y: -20,
-        x: Math.random() * window.innerWidth
+        x: Math.random() * viewport.width
       }}
       transition={{
         duration: Math.random() * 10 + 15,
@@ -50,18 +93,20 @@ const OrnamentalFlourish = () =>
     <circle cx="40" cy="20" r="1.5" fill="#C9A96E" opacity="0.6" />
   </svg>;
 
-export function ComingSoonHero() {
-  const [timeLeft, setTimeLeft] = useState<TimeLeft>({
-    days: 0,
-    hours: 0,
-    minutes: 0,
-    seconds: 0
-  });
-  const [countdownState, setCountdownState] = useState<{
-    launchAt: number;
-    serverNow: number;
-    syncedAt: number;
-  } | null>(null);
+export function ComingSoonHero({ initialCountdownState }: ComingSoonHeroProps) {
+  const [timeLeft, setTimeLeft] = useState<TimeLeft>(() =>
+    calculateTimeLeft(initialCountdownState)
+  );
+  const [countdownState, setCountdownState] = useState<CountdownSnapshot | null>(
+    null
+  );
+
+  useEffect(() => {
+    setCountdownState({
+      ...initialCountdownState,
+      syncedAt: Date.now()
+    });
+  }, [initialCountdownState]);
 
   useEffect(() => {
     let cancelled = false;
@@ -86,11 +131,9 @@ export function ComingSoonHero() {
         }
       } catch {
         if (!cancelled) {
-          const fallbackNow = Date.now();
           setCountdownState({
-            launchAt: fallbackNow + 5 * 24 * 60 * 60 * 1000,
-            serverNow: fallbackNow,
-            syncedAt: fallbackNow
+            ...initialCountdownState,
+            syncedAt: Date.now()
           });
         }
       }
@@ -101,28 +144,24 @@ export function ComingSoonHero() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [initialCountdownState]);
 
   useEffect(() => {
     if (countdownState === null) {
       return;
     }
 
-    const calculateTimeLeft = () => {
+    const updateTimeLeft = () => {
       const elapsedSinceSync = Date.now() - countdownState.syncedAt;
       const estimatedServerNow = countdownState.serverNow + elapsedSinceSync;
-      const remaining = Math.max(countdownState.launchAt - estimatedServerNow, 0);
-
-      setTimeLeft({
-        days: Math.floor(remaining / (1000 * 60 * 60 * 24)),
-        hours: Math.floor(remaining % (1000 * 60 * 60 * 24) / (1000 * 60 * 60)),
-        minutes: Math.floor(remaining % (1000 * 60 * 60) / (1000 * 60)),
-        seconds: Math.floor(remaining % (1000 * 60) / 1000)
-      });
+      setTimeLeft(calculateTimeLeft({
+        launchAt: countdownState.launchAt,
+        serverNow: estimatedServerNow
+      }));
     };
 
-    calculateTimeLeft();
-    const timer = setInterval(calculateTimeLeft, 1000);
+    updateTimeLeft();
+    const timer = setInterval(updateTimeLeft, 1000);
     return () => clearInterval(timer);
   }, [countdownState]);
   const containerVariants = {
