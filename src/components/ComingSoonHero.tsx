@@ -57,43 +57,74 @@ export function ComingSoonHero() {
     minutes: 0,
     seconds: 0
   });
-  const [countdownStart] = useState(() => {
-    const storageKey = 'dreamscape-countdown-start';
-    const storedValue =
-      typeof window !== 'undefined' ? localStorage.getItem(storageKey) : null;
+  const [countdownState, setCountdownState] = useState<{
+    launchAt: number;
+    serverNow: number;
+    syncedAt: number;
+  } | null>(null);
 
-    if (storedValue) {
-      return Number(storedValue);
-    }
-
-    const now = Date.now();
-
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(storageKey, String(now));
-    }
-
-    return now;
-  });
-  const countdownDurationMs = 5 * 24 * 60 * 60 * 1000;
-
-  const calculateTimeLeft = () => {
-    const elapsed = Date.now() - countdownStart;
-    const remaining = Math.max(countdownDurationMs - elapsed, 0);
-
-    setTimeLeft({
-      days: Math.floor(remaining / (1000 * 60 * 60 * 24)),
-      hours: Math.floor(remaining % (1000 * 60 * 60 * 24) / (1000 * 60 * 60)),
-      minutes: Math.floor(remaining % (1000 * 60 * 60) / (1000 * 60)),
-      seconds: Math.floor(remaining % (1000 * 60) / 1000)
-    });
-  };
-
-  // Countdown logic
   useEffect(() => {
+    let cancelled = false;
+
+    const syncCountdownState = async () => {
+      try {
+        const response = await fetch('/api/countdown', {
+          method: 'GET',
+          cache: 'no-store'
+        });
+        const data = await response.json() as {
+          launchAt: number;
+          serverNow: number;
+        };
+
+        if (!cancelled) {
+          setCountdownState({
+            launchAt: data.launchAt,
+            serverNow: data.serverNow,
+            syncedAt: Date.now()
+          });
+        }
+      } catch {
+        if (!cancelled) {
+          const fallbackNow = Date.now();
+          setCountdownState({
+            launchAt: fallbackNow + 5 * 24 * 60 * 60 * 1000,
+            serverNow: fallbackNow,
+            syncedAt: fallbackNow
+          });
+        }
+      }
+    };
+
+    syncCountdownState();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (countdownState === null) {
+      return;
+    }
+
+    const calculateTimeLeft = () => {
+      const elapsedSinceSync = Date.now() - countdownState.syncedAt;
+      const estimatedServerNow = countdownState.serverNow + elapsedSinceSync;
+      const remaining = Math.max(countdownState.launchAt - estimatedServerNow, 0);
+
+      setTimeLeft({
+        days: Math.floor(remaining / (1000 * 60 * 60 * 24)),
+        hours: Math.floor(remaining % (1000 * 60 * 60 * 24) / (1000 * 60 * 60)),
+        minutes: Math.floor(remaining % (1000 * 60 * 60) / (1000 * 60)),
+        seconds: Math.floor(remaining % (1000 * 60) / 1000)
+      });
+    };
+
     calculateTimeLeft();
     const timer = setInterval(calculateTimeLeft, 1000);
     return () => clearInterval(timer);
-  }, []);
+  }, [countdownState]);
   const containerVariants = {
     hidden: {
       opacity: 0
